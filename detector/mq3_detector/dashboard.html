@@ -143,6 +143,20 @@
   }
   .ws-config button:hover { background: rgba(0,229,160,0.08); }
 
+  .ws-help {
+    margin: -1rem 0 2rem;
+    padding: 0.9rem 1rem;
+    background: rgba(17, 19, 24, 0.95);
+    border: 0.5px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .ws-help strong { color: var(--text); font-weight: 400; }
+  .ws-help code { color: var(--ok); }
+
   @media(max-width:600px){
     .metrics { grid-template-columns: repeat(2,1fr); }
     .logo { font-size: 1.4rem; }
@@ -163,6 +177,13 @@
   <div class="ws-config">
     <input type="text" id="ws-url" value="" placeholder="ws://IP:8765">
     <button onclick="conectar()">Conectar</button>
+  </div>
+
+  <div class="ws-help">
+    <strong>Que URL usar:</strong><br>
+    En tu PC local usa <code>ws://localhost:8765</code>.<br>
+    Desde otra computadora o celular usa <code>ws://IP-DE-TU-PC:8765</code>.<br>
+    En GitHub Pages no uses <code>localhost</code>; escribe la IP o URL real del servidor WebSocket.
   </div>
 
   <!-- warmup -->
