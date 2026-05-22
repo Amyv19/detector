@@ -161,7 +161,7 @@
   </header>
 
   <div class="ws-config">
-    <input type="text" id="ws-url" value="ws://localhost:8765" placeholder="ws://IP:8765">
+    <input type="text" id="ws-url" value="" placeholder="ws://IP:8765">
     <button onclick="conectar()">Conectar</button>
   </div>
 
@@ -225,6 +225,16 @@
 <script>
 let ws = null;
 const MAX_LOG = 50;
+
+const esPaginaPublica = location.protocol.startsWith('http');
+const wsInput = document.getElementById('ws-url');
+const wsGuardado = localStorage.getItem('mq3_ws_url');
+
+if (wsGuardado) {
+  wsInput.value = wsGuardado;
+} else if (!esPaginaPublica) {
+  wsInput.value = 'ws://localhost:8765';
+}
 
 const colores = {
   normal:      { banner:'',       icon:'✓',  label:'NORMAL',      msg:'Sin presencia significativa de alcohol', gauge:'#00e5a0' },
@@ -332,6 +342,11 @@ function agregarLog(d) {
 function conectar() {
   if (ws) ws.close();
   const url = document.getElementById('ws-url').value.trim();
+  if (!url) {
+    document.getElementById('ws-status').textContent = 'ingresa una URL';
+    return;
+  }
+  localStorage.setItem('mq3_ws_url', url);
   ws = new WebSocket(url);
 
   ws.onopen = () => {
@@ -358,7 +373,9 @@ function conectar() {
 }
 
 window.addEventListener('resize', () => { if(datos.length) dibujarChart(datos.map((v,i)=>({adc:v}))); });
-window.addEventListener('load', conectar);
+window.addEventListener('load', () => {
+  if (wsInput.value) conectar();
+});
 </script>
 </body>
 </html>
