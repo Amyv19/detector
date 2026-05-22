@@ -1,0 +1,45 @@
+FRONTEND PARA PICO + MQ-3
+=========================
+
+Este flujo usa 2 partes:
+
+1. La Raspberry Pi Pico corre `main_pico_front.py`
+   y manda lecturas por USB serial.
+
+2. Tu PC corre `serial_frontend.py`
+   y publica esas lecturas en WebSocket para `dashboard.html`.
+
+ARCHIVOS
+--------
+  main_pico_front.py
+  serial_frontend.py
+  dashboard.html
+
+PASOS
+-----
+1. En Thonny, guarda `main_pico_front.py` en la placa como `main.py`.
+
+2. Cierra Thonny o desconecta el puerto serial.
+   El puente de PC necesita tomar control del COM.
+
+3. En tu PC instala dependencias:
+     pip install pyserial websockets
+
+4. Corre el puente serial:
+     python serial_frontend.py COM6
+
+   Cambia `COM6` por el puerto real de tu placa.
+
+5. Abre `dashboard.html`
+   y conecta a:
+     ws://localhost:8765
+
+NOTA
+----
+El dashboard ya esta configurado con `ws://localhost:8765` por defecto.
+
+IMPORTANTE
+----------
+Si dejas Thonny abierto usando la consola de la Pico,
+Windows normalmente bloquea el puerto COM y `serial_frontend.py`
+no podra leerlo.

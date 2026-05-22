@@ -1,0 +1,85 @@
+=============================================
+  MQ-3 DETECTOR DE ALCOHOL - Raspberry Pi 4
+=============================================
+
+ARCHIVOS
+--------
+  config.py      -> pines GPIO y umbrales
+  main.py        -> modo terminal
+  server.py      -> servidor WebSocket para el dashboard
+  dashboard.html -> interfaz web
+  instalar.sh    -> instala dependencias en la Raspberry Pi
+
+IMPORTANTE
+----------
+Los comandos de `sudo`, `raspi-config`, `bash instalar.sh` y
+`python3 main.py` se ejecutan dentro de la Raspberry Pi, no en
+PowerShell de Windows.
+
+Si pegas todo junto en Windows, vas a ver errores como:
+  - `unzip` no existe
+  - `sudo` no aplica a tu PC
+  - `cd mq3_detector` apunta a la carpeta equivocada
+
+FLUJO CORRECTO DESDE WINDOWS
+----------------------------
+1. Abre PowerShell en la carpeta PADRE del proyecto.
+   Ejemplo:
+     cd "C:\Users\AV230226\Downloads\mq3_detector (2)"
+
+2. Copia la carpeta a la Raspberry Pi:
+     scp -r .\mq3_detector pi@<IP-DE-TU-RPI>:~/
+
+3. Entra por SSH a la Raspberry Pi:
+     ssh pi@<IP-DE-TU-RPI>
+
+4. Ya dentro de la Raspberry Pi, entra a la carpeta:
+     cd ~/mq3_detector
+
+5. Habilita SPI (solo una vez):
+     sudo raspi-config
+     -> Interface Options -> SPI -> Yes -> Finish -> reboot
+
+6. Si la Raspberry Pi se reinicia, vuelve a entrar:
+     ssh pi@<IP-DE-TU-RPI>
+     cd ~/mq3_detector
+
+7. Instala dependencias (solo una vez):
+     bash instalar.sh
+
+8A. MODO TERMINAL:
+     python3 main.py
+
+8B. MODO DASHBOARD WEB:
+     python3 server.py
+     Luego abre `dashboard.html` en tu PC o telefono y conecta a:
+     ws://<IP-DE-TU-RPI>:8765
+
+SI YA ESTAS DENTRO DE `mq3_detector` EN POWERSHELL
+--------------------------------------------------
+Sube un nivel antes de usar `scp`:
+     cd ..
+     scp -r .\mq3_detector pi@<IP-DE-TU-RPI>:~/
+
+CALIBRACION
+-----------
+Edita `config.py`:
+  UMBRAL_ADVERTENCIA = 400   (LED rojo)
+  UMBRAL_PELIGRO     = 700   (LED rojo + buzzer)
+
+Corre primero en ambiente limpio y observa los valores ADC.
+Ajusta los umbrales segun tus lecturas.
+
+PINES BCM
+---------
+  GPIO22 -> LED Verde   (330 ohm)
+  GPIO27 -> LED Rojo    (330 ohm)
+  GPIO17 -> Buzzer (+)
+  SPI    -> SCLK/MISO/MOSI/CE0 -> MCP3008
+  3.3V   -> MCP3008 VDD + VREF
+  5V     -> MQ-3 VCC
+  GND    -> comun
+
+NOTA: El sensor MQ-3 necesita ~20s de calentamiento
+      antes de dar lecturas estables.
+=============================================

@@ -1,0 +1,59 @@
+MQ-3 EN MICROPYTHON
+===================
+
+Esta version es para una placa que corre MicroPython, por ejemplo:
+  - Raspberry Pi Pico
+  - Raspberry Pi Pico W
+  - otra placa compatible con `machine.Pin` y `machine.SPI`
+
+ARCHIVOS
+--------
+  config_micropython.py
+  main_micropython.py
+
+QUE CAMBIA RESPECTO A LA VERSION ORIGINAL
+----------------------------------------
+La version original usa:
+  - `spidev`
+  - `RPi.GPIO`
+
+Esas librerias son para Raspberry Pi con Linux.
+En MicroPython se reemplazan por:
+  - `machine.SPI`
+  - `machine.Pin`
+
+CONEXIONES SUGERIDAS EN PICO
+----------------------------
+  GP18 -> MCP3008 CLK
+  GP19 -> MCP3008 DIN
+  GP16 -> MCP3008 DOUT
+  GP20 -> MCP3008 CS/SHDN
+
+  GP22 -> LED verde
+  GP27 -> LED rojo
+  GP17 -> buzzer
+
+  MQ-3 -> CH0 del MCP3008
+
+  3.3V -> MCP3008 VDD y VREF
+  GND  -> comun
+
+NOTA IMPORTANTE
+---------------
+Los GPIO del Pico no son los mismos que en una Raspberry Pi 4.
+Si tu placa no tiene esos pines disponibles, cambia los valores en
+`config_micropython.py`.
+
+COMO EJECUTAR
+-------------
+1. Copia `config_micropython.py` y `main_micropython.py` a la placa.
+2. Renombra `main_micropython.py` a `main.py` si quieres autoarranque.
+3. Reinicia la placa o ejecuta el script desde Thonny.
+
+CALIBRACION
+-----------
+Los umbrales siguen en escala ADC 0-1023:
+  UMBRAL_ADVERTENCIA = 400
+  UMBRAL_PELIGRO     = 700
+
+Ajustalos segun tus lecturas reales.

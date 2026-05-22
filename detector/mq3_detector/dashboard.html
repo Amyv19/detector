@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MQ-3 — Monitor de Alcohol</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0c0f;
+    --surface:  #111318;
+    --border:   #1e232b;
+    --ok:       #00e5a0;
+    --warn:     #f5a623;
+    --danger:   #ff3b5c;
+    --warm:     #5b8cff;
+    --text:     #d4dbe8;
+    --muted:    #4a5568;
+    --mono:     'Share Tech Mono', monospace;
+    --display:  'Barlow Condensed', sans-serif;
+    --accent:   var(--ok);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--display);
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid scanlines overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.012) 3px, rgba(255,255,255,0.012) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* header */
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2.5rem; border-bottom: 0.5px solid var(--border); padding-bottom: 1rem; }
+  .logo { font-size: 2rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .logo span { color: var(--text); font-weight: 300; }
+  .ws-badge { font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.4s; }
+  .ws-dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* status banner */
+  .banner {
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color 0.4s, background 0.4s;
+    background: rgba(0,229,160,0.04);
+  }
+  .banner.warn  { --accent: var(--warn);  background: rgba(245,166,35,0.06); }
+  .banner.danger{ --accent: var(--danger); background: rgba(255,59,92,0.06); }
+  .banner.warm  { --accent: var(--warm);  background: rgba(91,140,255,0.06); }
+  .banner-icon { font-size: 2rem; min-width: 2.5rem; text-align: center; }
+  .banner-label { font-size: 0.75rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); }
+  .banner-msg   { font-size: 1.1rem; font-weight: 500; color: var(--text); }
+
+  /* metric grid */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .metric {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+    transition: background 0.4s;
+  }
+  .metric-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; margin-bottom: 0.5rem; }
+  .metric-value { font-family: var(--mono); font-size: 2rem; font-weight: 400; color: var(--text); line-height: 1; }
+  .metric-unit  { font-size: 0.9rem; color: var(--muted); margin-left: 4px; }
+
+  /* gauge */
+  .gauge-wrap { margin-bottom: 2rem; background: var(--surface); border: 0.5px solid var(--border); border-radius: 4px; padding: 1.5rem; }
+  .gauge-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; margin-bottom: 1rem; }
+  .gauge-track { height: 10px; background: #1a1f28; border-radius: 2px; position: relative; overflow: hidden; }
+  .gauge-fill  { height: 100%; border-radius: 2px; transition: width 0.5s cubic-bezier(.4,0,.2,1), background 0.4s; background: var(--ok); }
+  .gauge-marks { display: flex; justify-content: space-between; margin-top: 6px; }
+  .gauge-mark  { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .gauge-mark.hi { color: var(--warn); }
+  .gauge-mark.crit { color: var(--danger); }
+
+  /* warmup bar */
+  .warmup { margin-bottom: 2rem; background: var(--surface); border: 0.5px solid var(--border); border-radius: 4px; padding: 1.25rem 1.5rem; display: none; }
+  .warmup.visible { display: block; }
+  .warmup-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--warm); text-transform: uppercase; margin-bottom: 0.75rem; }
+  .warmup-track { height: 6px; background: #1a1f28; border-radius: 2px; overflow: hidden; }
+  .warmup-fill  { height: 100%; background: var(--warm); border-radius: 2px; transition: width 0.5s; box-shadow: 0 0 8px var(--warm); }
+
+  /* chart */
+  .chart-wrap { background: var(--surface); border: 0.5px solid var(--border); border-radius: 4px; padding: 1.5rem; margin-bottom: 2rem; }
+  .chart-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; margin-bottom: 1rem; }
+  canvas#chart { width: 100%; height: 160px; display: block; }
+
+  /* log */
+  .log-wrap { background: var(--surface); border: 0.5px solid var(--border); border-radius: 4px; padding: 1.25rem 1.5rem; }
+  .log-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; margin-bottom: 0.75rem; }
+  .log-list  { font-family: var(--mono); font-size: 12px; line-height: 1.8; max-height: 140px; overflow-y: auto; }
+  .log-entry { display: flex; gap: 1rem; }
+  .log-ts    { color: var(--muted); min-width: 60px; }
+  .log-ok    { color: var(--ok); }
+  .log-warn  { color: var(--warn); }
+  .log-danger{ color: var(--danger); }
+  .log-warm  { color: var(--warm); }
+
+  /* ws config */
+  .ws-config { display: flex; align-items: center; gap: 8px; margin-bottom: 2rem; }
+  .ws-config input {
+    flex: 1; background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: 4px; padding: 8px 12px;
+    font-family: var(--mono); font-size: 13px; color: var(--text);
+    outline: none;
+  }
+  .ws-config input:focus { border-color: var(--ok); }
+  .ws-config button {
+    background: transparent; border: 0.5px solid var(--ok); color: var(--ok);
+    border-radius: 4px; padding: 8px 16px;
+    font-family: var(--display); font-weight: 500; font-size: 14px;
+    cursor: pointer; letter-spacing: 0.1em; text-transform: uppercase;
+    transition: background 0.2s;
+  }
+  .ws-config button:hover { background: rgba(0,229,160,0.08); }
+
+  @media(max-width:600px){
+    .metrics { grid-template-columns: repeat(2,1fr); }
+    .logo { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">MQ<span>—</span>3 <span>Monitor</span></div>
+    <div class="ws-badge">
+      <div class="ws-dot" id="dot"></div>
+      <span id="ws-status">desconectado</span>
+    </div>
+  </header>
+
+  <div class="ws-config">
+    <input type="text" id="ws-url" value="ws://localhost:8765" placeholder="ws://IP:8765">
+    <button onclick="conectar()">Conectar</button>
+  </div>
+
+  <!-- warmup -->
+  <div class="warmup" id="warmup">
+    <div class="warmup-title">⟳ Calentando sensor — espera lecturas estables</div>
+    <div class="warmup-track"><div class="warmup-fill" id="warmup-fill" style="width:0%"></div></div>
+  </div>
+
+  <!-- banner -->
+  <div class="banner" id="banner">
+    <div class="banner-icon" id="banner-icon">—</div>
+    <div>
+      <div class="banner-label" id="banner-label">Sin conexión</div>
+      <div class="banner-msg"  id="banner-msg">Conecta al servidor WebSocket</div>
+    </div>
+  </div>
+
+  <!-- metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">ADC Raw</div>
+      <div class="metric-value" id="m-adc">—<span class="metric-unit">/1023</span></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Voltaje</div>
+      <div class="metric-value" id="m-volt">—<span class="metric-unit">V</span></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">PPM aprox.</div>
+      <div class="metric-value" id="m-ppm">—<span class="metric-unit">ppm</span></div>
+    </div>
+  </div>
+
+  <!-- gauge -->
+  <div class="gauge-wrap">
+    <div class="gauge-title">Nivel de concentración — ADC 0–1023</div>
+    <div class="gauge-track"><div class="gauge-fill" id="gauge" style="width:0%"></div></div>
+    <div class="gauge-marks">
+      <span class="gauge-mark">0</span>
+      <span class="gauge-mark hi">400 ⚠</span>
+      <span class="gauge-mark crit">700 ✕</span>
+      <span class="gauge-mark">1023</span>
+    </div>
+  </div>
+
+  <!-- chart -->
+  <div class="chart-wrap">
+    <div class="chart-title">Historial ADC — últimos 30s</div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- log -->
+  <div class="log-wrap">
+    <div class="log-title">Log de eventos</div>
+    <div class="log-list" id="log"></div>
+  </div>
+
+</div>
+
+<script>
+let ws = null;
+const MAX_LOG = 50;
+
+const colores = {
+  normal:      { banner:'',       icon:'✓',  label:'NORMAL',      msg:'Sin presencia significativa de alcohol', gauge:'#00e5a0' },
+  advertencia: { banner:'warn',   icon:'⚠',  label:'ADVERTENCIA', msg:'Concentración moderada detectada',       gauge:'#f5a623' },
+  peligro:     { banner:'danger', icon:'✕',  label:'PELIGRO',     msg:'Concentración alta — activando alarma',  gauge:'#ff3b5c' },
+  calentando:  { banner:'warm',   icon:'⟳',  label:'CALENTANDO',  msg:'Esperando estabilización del sensor',    gauge:'#5b8cff' },
+};
+
+function fmt(n) { return String(n).padStart(4,' '); }
+
+function actualizar(d) {
+  const c = colores[d.nivel] || colores.normal;
+
+  // warmup
+  const wu = document.getElementById('warmup');
+  if (d.calentando) {
+    wu.classList.add('visible');
+    document.getElementById('warmup-fill').style.width = d.warmup_pct + '%';
+  } else {
+    wu.classList.remove('visible');
+  }
+
+  // banner
+  const b = document.getElementById('banner');
+  b.className = 'banner ' + c.banner;
+  document.getElementById('banner-icon').textContent  = c.icon;
+  document.getElementById('banner-label').textContent = c.label;
+  document.getElementById('banner-msg').textContent   = c.msg;
+
+  // metrics
+  document.getElementById('m-adc').innerHTML  = d.adc  + '<span class="metric-unit">/1023</span>';
+  document.getElementById('m-volt').innerHTML = d.voltaje + '<span class="metric-unit">V</span>';
+  document.getElementById('m-ppm').innerHTML  = d.ppm  + '<span class="metric-unit">ppm</span>';
+
+  // gauge
+  const pct = Math.min(100, (d.adc / 1023) * 100).toFixed(1);
+  document.getElementById('gauge').style.width = pct + '%';
+  document.getElementById('gauge').style.background = c.gauge;
+}
+
+// ── Canvas chart ────────────────────────────────
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let datos = [];
+
+function dibujarChart(hist) {
+  datos = hist.map(h => h.adc);
+  const W = canvas.offsetWidth, H = 160;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  const pad = 8, max = 1023;
+  const xs = i => pad + (i / (datos.length - 1)) * (W - pad*2);
+  const ys = v => H - pad - (v / max) * (H - pad*2);
+
+  // threshold lines
+  [[400,'#f5a623'],[700,'#ff3b5c']].forEach(([th, col]) => {
+    ctx.strokeStyle = col + '55';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    ctx.moveTo(pad, ys(th)); ctx.lineTo(W-pad, ys(th));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  if (datos.length < 2) return;
+
+  // area fill
+  ctx.beginPath();
+  ctx.moveTo(xs(0), ys(datos[0]));
+  datos.forEach((v,i) => { if(i>0) ctx.lineTo(xs(i), ys(v)); });
+  ctx.lineTo(xs(datos.length-1), H);
+  ctx.lineTo(xs(0), H);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(0,229,160,0.18)');
+  grad.addColorStop(1,'rgba(0,229,160,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // line
+  ctx.beginPath();
+  ctx.moveTo(xs(0), ys(datos[0]));
+  datos.forEach((v,i) => { if(i>0) ctx.lineTo(xs(i), ys(v)); });
+  ctx.strokeStyle = '#00e5a0';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ── Log ─────────────────────────────────────────
+function agregarLog(d) {
+  const log = document.getElementById('log');
+  const clsNivel = { normal:'log-ok', advertencia:'log-warn', peligro:'log-danger', calentando:'log-warm' };
+  const cls = clsNivel[d.nivel] || 'log-ok';
+  const t = String(Math.floor(d.ts)).padStart(5,'0') + 's';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-ts">${t}</span><span class="${cls}">[${d.nivel.toUpperCase().padEnd(12)}] ADC:${fmt(d.adc)}  ${d.voltaje}V  ~${d.ppm}ppm</span>`;
+  log.prepend(entry);
+  while (log.children.length > MAX_LOG) log.removeChild(log.lastChild);
+}
+
+// ── WebSocket ────────────────────────────────────
+function conectar() {
+  if (ws) ws.close();
+  const url = document.getElementById('ws-url').value.trim();
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    document.getElementById('dot').classList.add('on');
+    document.getElementById('ws-status').textContent = 'conectado';
+  };
+  ws.onclose = () => {
+    document.getElementById('dot').classList.remove('on');
+    document.getElementById('ws-status').textContent = 'desconectado';
+  };
+  ws.onerror = () => {
+    document.getElementById('ws-status').textContent = 'error';
+  };
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.tipo === 'lectura') {
+      actualizar(msg.data);
+      agregarLog(msg.data);
+      if (msg.historial) dibujarChart(msg.historial);
+    } else if (msg.tipo === 'historial') {
+      dibujarChart(msg.historial);
+    }
+  };
+}
+
+window.addEventListener('resize', () => { if(datos.length) dibujarChart(datos.map((v,i)=>({adc:v}))); });
+window.addEventListener('load', conectar);
+</script>
+</body>
+</html>
